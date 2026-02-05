@@ -709,7 +709,7 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: { temperature: 0.2, maxOutputTokens: 1024 }
+                generationConfig: { temperature: 0.2, maxOutputTokens: 2048 }
             })
         });
 
@@ -730,22 +730,44 @@
             throw new Error('Gemini blocked this content due to safety filters. Try a different URL.');
         }
 
-        let responseText = candidate.content?.parts?.[0]?.text || '';
+        let responseText = '';
+        try { responseText = candidate.content.parts[0].text; } catch(e) {}
         if (!responseText) throw new Error('Gemini returned an empty response. Try again.');
 
-        // Strip markdown code blocks if present
-        responseText = responseText.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+        // Aggressively strip markdown code fences, whitespace, and preamble
+        responseText = responseText.replace(/```[\w]*\s*/gi, '').replace(/```/g, '').trim();
 
-        const match = responseText.match(/\[[\s\S]*\]/);
-        if (!match) {
-            console.error('Gemini response (could not find JSON array):', responseText);
-            throw new Error('Gemini did not return valid suggestions. Try again or try a different URL.');
+        // Try multiple strategies to find JSON array
+        let jsonStr = null;
+
+        // Strategy 1: Find outermost [ ... ]
+        const startIdx = responseText.indexOf('[');
+        const endIdx = responseText.lastIndexOf(']');
+        if (startIdx !== -1 && endIdx > startIdx) {
+            jsonStr = responseText.substring(startIdx, endIdx + 1);
+        }
+
+        // Strategy 2: If that fails, try to build from individual objects
+        if (!jsonStr) {
+            const objMatches = responseText.match(/\{[^}]+\}/g);
+            if (objMatches && objMatches.length > 0) jsonStr = '[' + objMatches.join(',') + ']';
+        }
+
+        if (!jsonStr) {
+            console.error('Gemini raw response:', responseText.substring(0, 500));
+            throw new Error('Gemini returned unexpected format. Please try again.');
         }
 
         let suggestions;
-        try { suggestions = JSON.parse(match[0]); } catch(parseErr) {
-            console.error('Gemini JSON parse error:', parseErr, 'Raw:', match[0]);
-            throw new Error('Gemini returned malformed data. Try again.');
+        try { suggestions = JSON.parse(jsonStr); } catch(parseErr) {
+            // Try to fix common JSON issues: trailing commas, single quotes
+            try {
+                const fixed = jsonStr.replace(/,\s*\]/g, ']').replace(/,\s*\}/g, '}').replace(/'/g, '"');
+                suggestions = JSON.parse(fixed);
+            } catch(e2) {
+                console.error('Gemini JSON parse failed. Raw:', jsonStr.substring(0, 500));
+                throw new Error('Gemini returned malformed data. Please try again.');
+            }
         }
         return suggestions.slice(0, maxSuggestions).filter(function(s) { return s.anchor_text && s.anchor_text.trim(); });
     }
