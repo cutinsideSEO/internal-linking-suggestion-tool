@@ -602,16 +602,29 @@
     /* ═══════════════════════════════════════════
        CORS PROXY  –  for scraping pages
        ═══════════════════════════════════════════ */
-    const SCRAPE_PROXY = 'https://api.allorigins.win/raw?url=';
+    /* ═══════════════════════════════════════════
+       CORS PROXY  –  with fallbacks
+       ═══════════════════════════════════════════ */
+    async function fetchViaProxy(url) {
+        const proxies = [
+            'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
+            'https://corsproxy.io/?' + url,
+            'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url)
+        ];
+        for (const proxy of proxies) {
+            try {
+                const r = await fetch(proxy);
+                if (r.ok) { const t = await r.text(); if (t && t.length > 200) return t; }
+            } catch(e) {}
+        }
+        throw new Error('Could not fetch the page. All proxies failed.');
+    }
 
     /* ═══════════════════════════════════════════
        SCRAPING  –  via CORS proxy + DOMParser
        ═══════════════════════════════════════════ */
     async function scrapePage(url) {
-        const proxyUrl = SCRAPE_PROXY + encodeURIComponent(url);
-        const res = await fetch(proxyUrl);
-        if (!res.ok) throw new Error('Could not fetch the page. It may be blocking scrapers.');
-        const html = await res.text();
+        const html = await fetchViaProxy(url);
 
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
@@ -731,11 +744,18 @@
 
         let res;
         try {
-            // Try direct call first
             res = await fetch(endpoint, fetchOpts);
+            if (!res.ok && res.status === 0) throw new Error('CORS');
         } catch (e) {
-            // CORS blocked — try proxy
-            res = await fetch('https://corsproxy.io/?' + encodeURIComponent(endpoint), fetchOpts);
+            try {
+                res = await fetch('https://corsproxy.io/?' + endpoint, fetchOpts);
+            } catch (e2) {
+                res = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(endpoint), {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Basic ' + credentials, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            }
         }
 
         if (res.status === 401) throw new Error('Invalid DataForSEO credentials.');
@@ -771,16 +791,16 @@
 
         let anchors = await extractAnchorTexts(page.text, page.title, page.domain, 15);
 
-        // Filter out anchor texts that already have an internal link on the page
+        // Filter out anchor texts that already have an exact internal link on the page
         anchors = anchors.filter(function(a) {
             const lower = a.anchor_text.trim().toLowerCase();
-            for (const linked of page.linkedAnchors) {
-                if (linked.includes(lower) || lower.includes(linked)) return false;
-            }
-            return true;
+            return !page.linkedAnchors.has(lower);
         }).slice(0, 10);
 
-        if (!anchors.length) throw new Error('No new anchor text suggestions found (all candidates already have internal links).');
+        if (!anchors.length) {
+            // If all filtered out, fall back to unfiltered top 10
+            anchors = await extractAnchorTexts(page.text, page.title, page.domain, 10);
+        }
 
         onStatus('Found ' + anchors.length + ' suggestions, searching for targets...');
 
@@ -846,7 +866,6 @@
 
     const funnyMessages = [
         "Hang tight... this might take a minute.",
-        "Still here. Still waiting. This is fine.",
         "We're both waiting now... it's getting a bit awkward.",
         "Hold on, the hamsters are spinning faster now...",
         "Almost there... probably.",
