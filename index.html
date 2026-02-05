@@ -615,6 +615,20 @@
 
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
+        const domain = extractDomain(url);
+
+        // Collect anchor texts that already have internal links
+        const linkedAnchors = new Set();
+        doc.querySelectorAll('a[href]').forEach(function(a) {
+            const href = a.getAttribute('href') || '';
+            let isInternal = false;
+            if (href.startsWith('/') && !href.startsWith('//')) { isInternal = true; }
+            else { try { if (extractDomain(href) === domain) isInternal = true; } catch(e) {} }
+            if (isInternal) {
+                const text = cleanText(a.textContent).toLowerCase();
+                if (text.length > 2) linkedAnchors.add(text);
+            }
+        });
 
         // Remove unwanted elements
         doc.querySelectorAll('script, style, nav, header, footer, aside, form, noscript, iframe')
@@ -638,9 +652,10 @@
 
         return {
             url: url,
-            domain: extractDomain(url),
+            domain: domain,
             title: title,
-            text: text
+            text: text,
+            linkedAnchors: linkedAnchors
         };
     }
 
@@ -751,13 +766,21 @@
        ORCHESTRATION  –  full analysis pipeline
        ═══════════════════════════════════════════ */
     async function analyze(sourceUrl, onStatus) {
-        onStatus('Scraping page content...');
+        onStatus('');
         const page = await scrapePage(sourceUrl);
 
-        onStatus('Analyzing content with Gemini AI...');
-        const anchors = await extractAnchorTexts(page.text, page.title, page.domain, 10);
+        let anchors = await extractAnchorTexts(page.text, page.title, page.domain, 15);
 
-        if (!anchors.length) throw new Error('Gemini could not find any anchor text suggestions.');
+        // Filter out anchor texts that already have an internal link on the page
+        anchors = anchors.filter(function(a) {
+            const lower = a.anchor_text.trim().toLowerCase();
+            for (const linked of page.linkedAnchors) {
+                if (linked.includes(lower) || lower.includes(linked)) return false;
+            }
+            return true;
+        }).slice(0, 10);
+
+        if (!anchors.length) throw new Error('No new anchor text suggestions found (all candidates already have internal links).');
 
         onStatus('Found ' + anchors.length + ' suggestions, searching for targets...');
 
@@ -822,16 +845,16 @@
     let loadingInterval = null;
 
     const funnyMessages = [
-        "Okay, we're checking... hang tight.",
-        "We're both waiting for this... it's getting a bit awkward...",
-        "Searching the internet's basement for you...",
-        "Generating links and questionable life choices...",
-        "Reading your page. Slowly. Very slowly.",
+        "Hang tight... this might take a minute.",
+        "Still here. Still waiting. This is fine.",
+        "We're both waiting now... it's getting a bit awkward.",
         "Hold on, the hamsters are spinning faster now...",
         "Almost there... probably.",
         "If you're reading this, we're still working.",
-        "Making SEO magic happen... or at least trying.",
-        "Whispering sweet nothings to Google..."
+        "Go grab a coffee. Seriously.",
+        "You could blink. It won't help, but you could.",
+        "Patience is a virtue. Or so they say.",
+        "Fun fact: you've been staring at this screen for a while now."
     ];
 
     /* ─── Settings UI ─── */
@@ -879,21 +902,10 @@
         setTimeout(function() { errorToast.classList.remove('visible'); }, 4500);
     }
 
-    let statusOverride = null;
-
     function startLoadingMessages() {
         var idx = 0;
         loadingText.textContent = funnyMessages[0];
         loadingInterval = setInterval(function() {
-            if (statusOverride) {
-                loadingText.style.opacity = 0;
-                setTimeout(function() {
-                    loadingText.textContent = statusOverride;
-                    loadingText.style.opacity = 1;
-                    statusOverride = null;
-                }, 300);
-                return;
-            }
             idx = (idx + 1) % funnyMessages.length;
             loadingText.style.opacity = 0;
             setTimeout(function() {
@@ -944,9 +956,7 @@
         startLoadingMessages();
 
         try {
-            const results = await analyze(url, function(status) {
-                statusOverride = status;
-            });
+            const results = await analyze(url, function(status) {});
 
             stopLoadingMessages();
             stopMusic();
@@ -970,7 +980,7 @@
     /* ─── Results ─── */
     function renderResults(results) {
         tbody.innerHTML = '';
-        resultsInfo.textContent = results.length + ' suggestions found';
+        resultsInfo.innerHTML = results.length + ' suggestions found for <a href="' + esc(currentSourceUrl) + '" target="_blank" rel="noopener" style="color:#888;text-decoration:underline;transition:color 0.2s" onmouseover="this.style.color=\'#fff\'" onmouseout="this.style.color=\'#888\'">' + esc(truncUrl(currentSourceUrl, 60)) + '</a>';
 
         results.forEach(function(r, i) {
             const tr = document.createElement('tr');
