@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Internal Linking Tool</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: #0a0a0a;
+            color: #f5f5f5;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ─── Landing Screen ─── */
+        .landing {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            gap: 30px;
+            transition: opacity 0.4s;
+        }
+
+        .landing.hidden { display: none; }
+
+        .landing-gif {
+            width: 320px;
+            max-width: 90vw;
+            border-radius: 16px;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 0;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        .input-row input {
+            flex: 1;
+            padding: 18px 22px;
+            background: #161616;
+            border: 2px solid #2a2a2a;
+            border-right: none;
+            border-radius: 14px 0 0 14px;
+            color: #fff;
+            font-family: inherit;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .input-row input:focus {
+            border-color: #fff;
+        }
+
+        .input-row input::placeholder {
+            color: #555;
+        }
+
+        .input-row button {
+            padding: 18px 28px;
+            background: #fff;
+            color: #0a0a0a;
+            border: 2px solid #fff;
+            border-radius: 0 14px 14px 0;
+            font-family: inherit;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.15s;
+            white-space: nowrap;
+        }
+
+        .input-row button:hover:not(:disabled) {
+            background: #e0e0e0;
+        }
+
+        .input-row button:active:not(:disabled) {
+            transform: scale(0.97);
+        }
+
+        .input-row button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* ─── Loading Screen ─── */
+        .loading-screen {
+            flex: 1;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 30px;
+            gap: 25px;
+        }
+
+        .loading-screen.active {
+            display: flex;
+        }
+
+        .loading-gif {
+            width: 300px;
+            max-width: 85vw;
+            border-radius: 14px;
+        }
+
+        .loading-text {
+            font-size: 1.15rem;
+            color: #999;
+            text-align: center;
+            min-height: 30px;
+            transition: opacity 0.3s;
+        }
+
+        .loading-dots {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .loading-dots span {
+            width: 8px;
+            height: 8px;
+            background: #555;
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+
+        .loading-dots span:nth-child(1) { animation-delay: -0.32s; }
+        .loading-dots span:nth-child(2) { animation-delay: -0.16s; }
+        .loading-dots span:nth-child(3) { animation-delay: 0s; }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+
+        /* ─── Error ─── */
+        .error-toast {
+            position: fixed;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-120px);
+            background: #1a1a1a;
+            border: 1px solid #333;
+            color: #ff6b6b;
+            padding: 16px 28px;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            z-index: 100;
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            max-width: 90vw;
+            text-align: center;
+        }
+
+        .error-toast.visible {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* ─── Results Screen ─── */
+        .results-screen {
+            display: none;
+            flex-direction: column;
+            padding: 40px 20px 20px;
+            max-width: 1100px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        .results-screen.active {
+            display: flex;
+        }
+
+        .results-top {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 28px;
+        }
+
+        .results-gif {
+            width: 260px;
+            max-width: 80vw;
+            border-radius: 14px;
+        }
+
+        .results-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .results-bar-left {
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .results-bar-right {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-sm {
+            padding: 10px 20px;
+            background: #161616;
+            border: 1px solid #2a2a2a;
+            color: #ccc;
+            border-radius: 10px;
+            font-family: inherit;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: border-color 0.2s, color 0.2s;
+        }
+
+        .btn-sm:hover {
+            border-color: #555;
+            color: #fff;
+        }
+
+        /* ─── Table ─── */
+        .table-wrap {
+            overflow-x: auto;
+            border-radius: 14px;
+            border: 1px solid #1e1e1e;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            text-align: left;
+            padding: 14px 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            background: #111;
+            border-bottom: 1px solid #1e1e1e;
+        }
+
+        td {
+            padding: 16px 20px;
+            border-bottom: 1px solid #141414;
+            vertical-align: top;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover td {
+            background: #0f0f0f;
+        }
+
+        .col-num {
+            width: 40px;
+            color: #444;
+            font-weight: 500;
+        }
+
+        .col-anchor {
+            font-weight: 600;
+            color: #f5f5f5;
+            font-size: 0.95rem;
+        }
+
+        .col-urls {
+            max-width: 500px;
+        }
+
+        .target-link {
+            display: block;
+            color: #888;
+            text-decoration: none;
+            font-size: 0.88rem;
+            padding: 4px 0;
+            word-break: break-all;
+            transition: color 0.2s;
+        }
+
+        .target-link:hover {
+            color: #fff;
+        }
+
+        .no-targets {
+            color: #444;
+            font-size: 0.85rem;
+            font-style: italic;
+        }
+
+        /* ─── Footer ─── */
+        footer {
+            text-align: center;
+            padding: 40px 20px;
+            color: #333;
+            font-size: 0.85rem;
+        }
+
+        footer a {
+            color: #555;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        footer a:hover {
+            color: #fff;
+        }
+
+        /* ─── Responsive ─── */
+        @media (max-width: 600px) {
+            .landing-gif { width: 260px; }
+            .loading-gif { width: 240px; }
+            .input-row { flex-direction: column; gap: 10px; }
+            .input-row input { border-radius: 14px; border-right: 2px solid #2a2a2a; }
+            .input-row button { border-radius: 14px; }
+            th, td { padding: 12px 14px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Landing -->
+    <div class="landing" id="landing">
+        <img
+            src="/static/connection-its-about-connection.gif"
+            alt="it's about connection"
+            class="landing-gif"
+        >
+        <form id="analyzeForm" class="input-row">
+            <input type="url" id="url" placeholder="paste a URL..." required autocomplete="off">
+            <button type="submit" id="submitBtn">Go</button>
+        </form>
+    </div>
+
+    <!-- Loading -->
+    <div class="loading-screen" id="loadingScreen">
+        <img
+            src="/static/seinfeld-neighbor.gif"
+            alt="waiting..."
+            class="loading-gif"
+        >
+        <div class="loading-dots">
+            <span></span><span></span><span></span>
+        </div>
+        <p class="loading-text" id="loadingText">Okay, we're checking... hang tight.</p>
+    </div>
+
+    <!-- Error Toast -->
+    <div class="error-toast" id="errorToast"></div>
+
+    <!-- Results -->
+    <div class="results-screen" id="resultsScreen">
+        <div class="results-top">
+            <img
+                src="/static/jon-hamm-jonhamm.gif"
+                alt="nice"
+                class="results-gif"
+            >
+        </div>
+
+        <div class="results-bar">
+            <div class="results-bar-left" id="resultsInfo"></div>
+            <div class="results-bar-right">
+                <button class="btn-sm" id="exportBtn">Export CSV</button>
+                <button class="btn-sm" id="newBtn">New search</button>
+            </div>
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Proposed Anchor Text</th>
+                        <th>Suggested Target URLs</th>
+                    </tr>
+                </thead>
+                <tbody id="tbody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <footer>
+        <a href="https://cutinside.com/" target="_blank" rel="noopener">Powered by The Best SEO Agency Ever</a>
+    </footer>
+
+    <!-- Elevator Music -->
+    <audio id="elevatorMusic" loop preload="auto">
+        <source src="/static/elevator-music.mp3" type="audio/mpeg">
+    </audio>
+
+    <script>
+        const form = document.getElementById('analyzeForm');
+        const urlInput = document.getElementById('url');
+        const submitBtn = document.getElementById('submitBtn');
+        const landing = document.getElementById('landing');
+        const loadingScreen = document.getElementById('loadingScreen');
+        const loadingText = document.getElementById('loadingText');
+        const errorToast = document.getElementById('errorToast');
+        const resultsScreen = document.getElementById('resultsScreen');
+        const resultsInfo = document.getElementById('resultsInfo');
+        const tbody = document.getElementById('tbody');
+        const exportBtn = document.getElementById('exportBtn');
+        const newBtn = document.getElementById('newBtn');
+        const elevatorMusic = document.getElementById('elevatorMusic');
+
+        let currentResults = [];
+        let currentSourceUrl = '';
+        let loadingInterval = null;
+
+        const funnyMessages = [
+            "Okay, we're checking... hang tight.",
+            "We're both waiting for this... it's getting a bit awkward...",
+            "Searching the internet's basement for you...",
+            "Generating links and questionable life choices...",
+            "Our AI is reading your page. Slowly.",
+            "Hold on, the hamsters are spinning faster now...",
+            "Almost there... probably.",
+            "If you're reading this, we're still working.",
+            "Making SEO magic happen... or at least trying.",
+            "Whispering sweet nothings to Google's API...",
+        ];
+
+        function showError(msg) {
+            errorToast.textContent = msg;
+            errorToast.classList.add('visible');
+            setTimeout(() => errorToast.classList.remove('visible'), 4500);
+        }
+
+        function startLoadingMessages() {
+            let idx = 0;
+            loadingText.textContent = funnyMessages[0];
+            loadingInterval = setInterval(() => {
+                idx = (idx + 1) % funnyMessages.length;
+                loadingText.style.opacity = 0;
+                setTimeout(() => {
+                    loadingText.textContent = funnyMessages[idx];
+                    loadingText.style.opacity = 1;
+                }, 300);
+            }, 2000);
+        }
+
+        function stopLoadingMessages() {
+            if (loadingInterval) {
+                clearInterval(loadingInterval);
+                loadingInterval = null;
+            }
+        }
+
+        function startMusic() {
+            elevatorMusic.volume = 0.3;
+            elevatorMusic.play().catch(() => {});
+        }
+
+        function stopMusic() {
+            elevatorMusic.pause();
+            elevatorMusic.currentTime = 0;
+        }
+
+        function truncUrl(url, max) {
+            return url.length > max ? url.slice(0, max - 1) + '\u2026' : url;
+        }
+
+        function esc(t) {
+            const d = document.createElement('div');
+            d.textContent = t;
+            return d.innerHTML;
+        }
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const url = urlInput.value.trim();
+            if (!url) return;
+
+            // Switch to loading
+            landing.classList.add('hidden');
+            resultsScreen.classList.remove('active');
+            loadingScreen.classList.add('active');
+            submitBtn.disabled = true;
+
+            startMusic();
+            startLoadingMessages();
+
+            try {
+                const res = await fetch('/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+                const data = await res.json();
+
+                stopLoadingMessages();
+                stopMusic();
+                loadingScreen.classList.remove('active');
+
+                if (!res.ok) throw new Error(data.error || 'Something went wrong');
+
+                currentResults = data.results;
+                currentSourceUrl = data.source_url;
+                renderResults(data);
+
+            } catch (err) {
+                stopLoadingMessages();
+                stopMusic();
+                loadingScreen.classList.remove('active');
+                landing.classList.remove('hidden');
+                showError(err.message);
+            } finally {
+                submitBtn.disabled = false;
+            }
+        });
+
+        function renderResults(data) {
+            tbody.innerHTML = '';
+            resultsInfo.textContent = `${data.count} suggestions found`;
+
+            data.results.forEach((r, i) => {
+                const tr = document.createElement('tr');
+
+                let urlsHtml = '';
+                if (r.target_urls && r.target_urls.length > 0) {
+                    urlsHtml = r.target_urls.map(t =>
+                        `<a href="${esc(t.url)}" class="target-link" target="_blank" rel="noopener">${esc(truncUrl(t.url, 65))}</a>`
+                    ).join('');
+                } else {
+                    urlsHtml = '<span class="no-targets">no matching pages</span>';
+                }
+
+                tr.innerHTML = `
+                    <td class="col-num">${i + 1}</td>
+                    <td class="col-anchor">${esc(r.anchor_text)}</td>
+                    <td class="col-urls">${urlsHtml}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            resultsScreen.classList.add('active');
+        }
+
+        exportBtn.addEventListener('click', async () => {
+            if (!currentResults.length) return;
+            try {
+                const res = await fetch('/export-csv', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ results: currentResults, source_url: currentSourceUrl })
+                });
+                const blob = await res.blob();
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `links_${new Date().toISOString().slice(0,10)}.csv`;
+                a.click();
+                URL.revokeObjectURL(a.href);
+            } catch (e) {
+                showError('CSV export failed');
+            }
+        });
+
+        newBtn.addEventListener('click', () => {
+            resultsScreen.classList.remove('active');
+            landing.classList.remove('hidden');
+            urlInput.value = '';
+            urlInput.focus();
+            currentResults = [];
+            currentSourceUrl = '';
+        });
+    </script>
+</body>
+</html>
