@@ -651,20 +651,22 @@
         // Try to isolate the main article body
         let contentRoot = doc.querySelector('main, [role="main"], article, .post-content, .entry-content, .article-body, .article-content, #content');
         if (!contentRoot) {
-            // Fallback: use body but strip header/footer/nav/sidebar
-            doc.querySelectorAll('script, style, nav, header, footer, aside, form, noscript, iframe, [role="navigation"], [role="banner"], [role="contentinfo"], .sidebar, .nav, .menu, .footer, .header, .widget')
+            // Fallback: use body but strip everything that isn't article content
+            doc.querySelectorAll('script, style, nav, header, footer, aside, form, noscript, iframe, [role="navigation"], [role="banner"], [role="contentinfo"], .sidebar, .nav, .menu, .footer, .header, .widget, .breadcrumb, .breadcrumbs, .social-share, .related-posts, .comments')
                 .forEach(el => el.remove());
             contentRoot = doc.body || doc.documentElement;
-        } else {
-            contentRoot.querySelectorAll('script, style, noscript, iframe').forEach(el => el.remove());
         }
 
-        // Extract text only from the article content area
-        const contentTags = 'p, h1, h2, h3, h4, h5, h6, li, td, th, blockquote';
+        // Remove nav, menus, and non-content elements from within the content root too
+        contentRoot.querySelectorAll('script, style, noscript, iframe, nav, aside, [role="navigation"], .sidebar, .nav, .menu, .widget, .breadcrumb, .social-share, .related-posts, .comments')
+            .forEach(el => el.remove());
+
+        // Extract text ONLY from paragraph and heading tags (not li/td which are often nav/widgets)
         const texts = [];
-        contentRoot.querySelectorAll(contentTags).forEach(el => {
+        contentRoot.querySelectorAll('p, h1, h2, h3, h4, h5, h6, blockquote').forEach(el => {
+            if (el.closest('nav, aside, [role="navigation"]')) return;
             const t = cleanText(el.textContent);
-            if (t.length > 10) texts.push(t);
+            if (t.length > 20) texts.push(t);
         });
 
         const text = texts.join(' ');
@@ -682,15 +684,21 @@
     /* ═══════════════════════════════════════════
        GEMINI API  –  direct REST call
        ═══════════════════════════════════════════ */
-    async function extractAnchorTexts(content, pageTitle, domain, maxSuggestions) {
+    async function extractAnchorTexts(content, pageTitle, domain, maxSuggestions, excludeAnchors) {
         maxSuggestions = maxSuggestions || 10;
         const config = getConfig();
         if (!config.geminiApiKey) throw new Error('Gemini API key not configured. Open settings.');
 
         if (content.length > 15000) content = content.slice(0, 15000);
 
+        let excludeList = '';
+        if (excludeAnchors && excludeAnchors.size > 0) {
+            const arr = Array.from(excludeAnchors).slice(0, 50);
+            excludeList = '\n\nIMPORTANT: The following anchor texts already have internal links on this page. Do NOT suggest any of these or close variations:\n' + arr.join(', ');
+        }
+
         const prompt =
-            'Below is the main article body content from a page on ' + domain + ' (title: "' + pageTitle + '"). Ignore any header, footer, navigation, or sidebar text that may have slipped in. Focus only on the article body and return exactly ' + maxSuggestions + ' anchor text candidates for internal linking. Pick short phrases (2-4 words) from the article that are likely topics with their own dedicated page on this domain.\n\n' +
+            'Below is the main article body content (paragraphs and headings only) from a page on ' + domain + ' (title: "' + pageTitle + '"). Extract exactly ' + maxSuggestions + ' anchor text candidates for internal linking. Rules:\n- Only pick phrases that appear in the article paragraphs below\n- Do NOT pick menu items, navigation links, or sidebar text\n- Pick short phrases (2-4 words) that are likely topics with their own dedicated page on this domain\n- Do NOT suggest any text that already has an internal link' + excludeList + '\n\n' +
             'Article content:\n' + content + '\n\n' +
             'Return ONLY a JSON array:\n[{"anchor_text":"term","relevance_score":0.8,"reasoning":"why"}]';
 
@@ -796,18 +804,16 @@
         onStatus('');
         const page = await scrapePage(sourceUrl);
 
-        let anchors = await extractAnchorTexts(page.text, page.title, page.domain, 15);
+        let anchors = await extractAnchorTexts(page.text, page.title, page.domain, 20, page.linkedAnchors);
 
-        // Filter out anchor texts that already have an exact internal link on the page
+        // Strictly filter out anchor texts that already have an internal link
         anchors = anchors.filter(function(a) {
             const lower = a.anchor_text.trim().toLowerCase();
-            return !page.linkedAnchors.has(lower);
+            for (const linked of page.linkedAnchors) {
+                if (lower === linked || linked.includes(lower) || lower.includes(linked)) return false;
+            }
+            return true;
         }).slice(0, 10);
-
-        if (!anchors.length) {
-            // If all filtered out, fall back to unfiltered top 10
-            anchors = await extractAnchorTexts(page.text, page.title, page.domain, 10);
-        }
 
         onStatus('Found ' + anchors.length + ' suggestions, searching for targets...');
 
