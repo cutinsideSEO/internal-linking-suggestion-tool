@@ -719,12 +719,34 @@
         }
 
         const data = await res.json();
-        const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+        // Check for blocked/empty response
+        if (!data.candidates || !data.candidates.length) {
+            const blockReason = data.promptFeedback?.blockReason || 'unknown';
+            throw new Error('Gemini blocked the request (reason: ' + blockReason + '). Try a different URL.');
+        }
+        const candidate = data.candidates[0];
+        if (candidate.finishReason === 'SAFETY') {
+            throw new Error('Gemini blocked this content due to safety filters. Try a different URL.');
+        }
+
+        let responseText = candidate.content?.parts?.[0]?.text || '';
+        if (!responseText) throw new Error('Gemini returned an empty response. Try again.');
+
+        // Strip markdown code blocks if present
+        responseText = responseText.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
 
         const match = responseText.match(/\[[\s\S]*\]/);
-        if (!match) throw new Error('Could not parse Gemini response.');
+        if (!match) {
+            console.error('Gemini response (could not find JSON array):', responseText);
+            throw new Error('Gemini did not return valid suggestions. Try again or try a different URL.');
+        }
 
-        const suggestions = JSON.parse(match[0]);
+        let suggestions;
+        try { suggestions = JSON.parse(match[0]); } catch(parseErr) {
+            console.error('Gemini JSON parse error:', parseErr, 'Raw:', match[0]);
+            throw new Error('Gemini returned malformed data. Try again.');
+        }
         return suggestions.slice(0, maxSuggestions).filter(function(s) { return s.anchor_text && s.anchor_text.trim(); });
     }
 
