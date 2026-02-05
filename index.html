@@ -435,18 +435,20 @@
     <!-- Settings Modal -->
     <div class="modal-overlay" id="settingsModal">
         <div class="modal">
-            <h2>API Settings</h2>
-            <p class="modal-note">Keys are stored in your browser only (localStorage). Never sent to any server.</p>
-            <label>Gemini API Key</label>
-            <input type="password" id="geminiKey" placeholder="AIza...">
-            <label>DataForSEO Login</label>
-            <input type="text" id="dfsLogin" placeholder="login@email.com">
-            <label>DataForSEO Password</label>
-            <input type="password" id="dfsPassword" placeholder="password">
-            <div class="modal-actions">
-                <button class="btn-save" id="saveSettings">Save</button>
-                <button class="btn-cancel" id="closeSettings">Cancel</button>
-            </div>
+            <form id="settingsForm" method="post" action="#">
+                <h2>API Settings</h2>
+                <p class="modal-note">Keys are stored in your browser only (localStorage). Never sent to any server.</p>
+                <label for="geminiKey">Gemini API Key</label>
+                <input type="password" id="geminiKey" name="gemini-api-key" autocomplete="section-gemini current-password" placeholder="AIza...">
+                <label for="dfsLogin">DataForSEO Login</label>
+                <input type="email" id="dfsLogin" name="dataforseo-login" autocomplete="section-dataforseo username" placeholder="login@email.com">
+                <label for="dfsPassword">DataForSEO Password</label>
+                <input type="password" id="dfsPassword" name="dataforseo-password" autocomplete="section-dataforseo current-password" placeholder="password">
+                <div class="modal-actions">
+                    <button type="submit" class="btn-save" id="saveSettings">Save</button>
+                    <button type="button" class="btn-cancel" id="closeSettings">Cancel</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -858,7 +860,8 @@
         if (e.target === settingsModal) closeModal();
     });
 
-    saveSettingsBtn.addEventListener('click', function() {
+    document.getElementById('settingsForm').addEventListener('submit', function(e) {
+        e.preventDefault();
         saveConfig({
             geminiApiKey: geminiKeyInput.value.trim(),
             dataforseoLogin: dfsLoginInput.value.trim(),
