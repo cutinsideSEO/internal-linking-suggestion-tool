@@ -24,7 +24,7 @@ def index():
 
 @app.route('/analyze', methods=['POST'])
 def analyze():
-    """Analyze a URL for internal linking opportunities using Gemini AI."""
+    """Analyze a URL for internal linking opportunities."""
     data = request.get_json()
     url = data.get('url', '').strip()
 
@@ -65,7 +65,7 @@ def analyze():
     except AuthenticationError as e:
         return jsonify({'error': f'DataForSEO auth failed: {str(e)}'}), 401
     except GeminiError as e:
-        return jsonify({'error': f'Gemini AI hiccup: {str(e)}'}), 500
+        return jsonify({'error': f'Analysis hiccup: {str(e)}'}), 500
     except ScrapingError as e:
         return jsonify({'error': f'Couldn\'t scrape that page: {str(e)}'}), 400
     except Exception as e:

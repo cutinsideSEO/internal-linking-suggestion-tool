@@ -6,26 +6,45 @@ import re
 
 def extract_domain(url: str) -> str:
     """
-    Extract the base domain from a URL.
+    Extract the root domain from a URL, stripping all subdomains.
 
     Args:
         url: The full URL to parse
 
     Returns:
-        The domain without protocol or path (e.g., 'example.com')
+        The root domain (e.g., 'domain.com')
 
     Examples:
         >>> extract_domain('https://www.example.com/page')
         'example.com'
         >>> extract_domain('https://blog.example.com/post')
-        'blog.example.com'
+        'example.com'
+        >>> extract_domain('https://sub.deep.example.co.uk/page')
+        'example.co.uk'
     """
     parsed = urlparse(url)
-    domain = parsed.netloc
+    domain = parsed.netloc.lower()
 
-    # Remove 'www.' prefix if present
+    # Remove 'www.' prefix
     if domain.startswith('www.'):
         domain = domain[4:]
+
+    # Handle known two-part TLDs (co.uk, com.au, co.il, etc.)
+    parts = domain.split('.')
+    two_part_tlds = {
+        'co.uk', 'co.il', 'co.jp', 'co.kr', 'co.nz', 'co.za', 'co.in',
+        'com.au', 'com.br', 'com.cn', 'com.mx', 'com.sg', 'com.tw',
+        'org.uk', 'org.au', 'net.au', 'ac.uk', 'ac.il',
+    }
+
+    if len(parts) >= 3:
+        possible_tld = '.'.join(parts[-2:])
+        if possible_tld in two_part_tlds:
+            # root = name.co.uk
+            return '.'.join(parts[-3:])
+        else:
+            # root = name.com
+            return '.'.join(parts[-2:])
 
     return domain
 
