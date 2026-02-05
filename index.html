@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Internal Linking Tool</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: #0a0a0a;
+            color: #f5f5f5;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ─── Settings Gear ─── */
+        .settings-btn {
+            position: fixed;
+            top: 18px;
+            right: 18px;
+            z-index: 200;
+            background: #161616;
+            border: 1px solid #2a2a2a;
+            color: #666;
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: color 0.2s, border-color 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .settings-btn:hover { color: #fff; border-color: #555; }
+        .settings-btn.configured { color: #4ade80; border-color: #2a4a35; }
+
+        /* ─── Modal ─── */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 300;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-overlay.active { display: flex; }
+
+        .modal {
+            background: #141414;
+            border: 1px solid #2a2a2a;
+            border-radius: 16px;
+            padding: 32px;
+            width: 100%;
+            max-width: 440px;
+        }
+
+        .modal h2 {
+            font-size: 1.15rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .modal-note {
+            color: #555;
+            font-size: 0.82rem;
+            margin-bottom: 22px;
+        }
+
+        .modal label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: #888;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }
+
+        .modal input {
+            width: 100%;
+            padding: 12px 14px;
+            background: #0a0a0a;
+            border: 1px solid #2a2a2a;
+            border-radius: 10px;
+            color: #fff;
+            font-family: inherit;
+            font-size: 0.9rem;
+            margin-bottom: 16px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .modal input:focus { border-color: #555; }
+        .modal input::placeholder { color: #444; }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 8px;
+        }
+
+        .modal-actions button {
+            flex: 1;
+            padding: 12px;
+            border-radius: 10px;
+            font-family: inherit;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1px solid #2a2a2a;
+            transition: background 0.2s;
+        }
+
+        .modal-actions .btn-save {
+            background: #fff;
+            color: #0a0a0a;
+            border-color: #fff;
+        }
+
+        .modal-actions .btn-save:hover { background: #e0e0e0; }
+
+        .modal-actions .btn-cancel {
+            background: #161616;
+            color: #999;
+        }
+
+        .modal-actions .btn-cancel:hover { color: #fff; border-color: #555; }
+
+        /* ─── Landing Screen ─── */
+        .landing {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            gap: 30px;
+            transition: opacity 0.4s;
+        }
+
+        .landing.hidden { display: none; }
+
+        .landing-gif {
+            width: 320px;
+            max-width: 90vw;
+            border-radius: 16px;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 0;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        .input-row input {
+            flex: 1;
+            padding: 18px 22px;
+            background: #161616;
+            border: 2px solid #2a2a2a;
+            border-right: none;
+            border-radius: 14px 0 0 14px;
+            color: #fff;
+            font-family: inherit;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .input-row input:focus { border-color: #fff; }
+        .input-row input::placeholder { color: #555; }
+
+        .input-row button {
+            padding: 18px 28px;
+            background: #fff;
+            color: #0a0a0a;
+            border: 2px solid #fff;
+            border-radius: 0 14px 14px 0;
+            font-family: inherit;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.15s;
+            white-space: nowrap;
+        }
+
+        .input-row button:hover:not(:disabled) { background: #e0e0e0; }
+        .input-row button:active:not(:disabled) { transform: scale(0.97); }
+        .input-row button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .setup-hint {
+            color: #444;
+            font-size: 0.85rem;
+        }
+
+        .setup-hint a {
+            color: #666;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .setup-hint a:hover { color: #fff; }
+        .setup-hint.hidden { display: none; }
+
+        /* ─── Loading Screen ─── */
+        .loading-screen {
+            flex: 1;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 30px;
+            gap: 25px;
+        }
+
+        .loading-screen.active { display: flex; }
+
+        .loading-gif {
+            width: 300px;
+            max-width: 85vw;
+            border-radius: 14px;
+        }
+
+        .loading-text {
+            font-size: 1.15rem;
+            color: #999;
+            text-align: center;
+            min-height: 30px;
+            transition: opacity 0.3s;
+        }
+
+        .loading-dots {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .loading-dots span {
+            width: 8px;
+            height: 8px;
+            background: #555;
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+
+        .loading-dots span:nth-child(1) { animation-delay: -0.32s; }
+        .loading-dots span:nth-child(2) { animation-delay: -0.16s; }
+        .loading-dots span:nth-child(3) { animation-delay: 0s; }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+
+        /* ─── Error ─── */
+        .error-toast {
+            position: fixed;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-120px);
+            background: #1a1a1a;
+            border: 1px solid #333;
+            color: #ff6b6b;
+            padding: 16px 28px;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            z-index: 100;
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            max-width: 90vw;
+            text-align: center;
+        }
+
+        .error-toast.visible {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* ─── Results Screen ─── */
+        .results-screen {
+            display: none;
+            flex-direction: column;
+            padding: 40px 20px 20px;
+            max-width: 1100px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        .results-screen.active { display: flex; }
+
+        .results-top {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 28px;
+        }
+
+        .results-gif {
+            width: 260px;
+            max-width: 80vw;
+            border-radius: 14px;
+        }
+
+        .results-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .results-bar-left {
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .results-bar-right {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-sm {
+            padding: 10px 20px;
+            background: #161616;
+            border: 1px solid #2a2a2a;
+            color: #ccc;
+            border-radius: 10px;
+            font-family: inherit;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: border-color 0.2s, color 0.2s;
+        }
+
+        .btn-sm:hover { border-color: #555; color: #fff; }
+
+        /* ─── Table ─── */
+        .table-wrap {
+            overflow-x: auto;
+            border-radius: 14px;
+            border: 1px solid #1e1e1e;
+        }
+
+        table { width: 100%; border-collapse: collapse; }
+
+        th {
+            text-align: left;
+            padding: 14px 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            background: #111;
+            border-bottom: 1px solid #1e1e1e;
+        }
+
+        td {
+            padding: 16px 20px;
+            border-bottom: 1px solid #141414;
+            vertical-align: top;
+        }
+
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: #0f0f0f; }
+
+        .col-num { width: 40px; color: #444; font-weight: 500; }
+
+        .col-anchor {
+            font-weight: 600;
+            color: #f5f5f5;
+            font-size: 0.95rem;
+        }
+
+        .col-urls { max-width: 500px; }
+
+        .target-link {
+            display: block;
+            color: #888;
+            text-decoration: none;
+            font-size: 0.88rem;
+            padding: 4px 0;
+            word-break: break-all;
+            transition: color 0.2s;
+        }
+
+        .target-link:hover { color: #fff; }
+
+        .no-targets {
+            color: #444;
+            font-size: 0.85rem;
+            font-style: italic;
+        }
+
+        /* ─── Footer ─── */
+        footer {
+            text-align: center;
+            padding: 40px 20px;
+            color: #333;
+            font-size: 0.85rem;
+        }
+
+        footer a {
+            color: #555;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        footer a:hover { color: #fff; }
+
+        /* ─── Responsive ─── */
+        @media (max-width: 600px) {
+            .landing-gif { width: 260px; }
+            .loading-gif { width: 240px; }
+            .input-row { flex-direction: column; gap: 10px; }
+            .input-row input { border-radius: 14px; border-right: 2px solid #2a2a2a; }
+            .input-row button { border-radius: 14px; }
+            th, td { padding: 12px 14px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Settings Gear -->
+    <button class="settings-btn" id="settingsBtn" title="API Settings">&#9881;</button>
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="settingsModal">
+        <div class="modal">
+            <h2>API Settings</h2>
+            <p class="modal-note">Keys are stored in your browser only (localStorage). Never sent to any server.</p>
+            <label>Gemini API Key</label>
+            <input type="password" id="geminiKey" placeholder="AIza...">
+            <label>DataForSEO Login</label>
+            <input type="text" id="dfsLogin" placeholder="login@email.com">
+            <label>DataForSEO Password</label>
+            <input type="password" id="dfsPassword" placeholder="password">
+            <div class="modal-actions">
+                <button class="btn-save" id="saveSettings">Save</button>
+                <button class="btn-cancel" id="closeSettings">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Landing -->
+    <div class="landing" id="landing">
+        <img
+            src="src/static/connection-its-about-connection.gif"
+            alt="it's about connection"
+            class="landing-gif"
+        >
+        <form id="analyzeForm" class="input-row">
+            <input type="url" id="url" placeholder="paste a URL..." required autocomplete="off">
+            <button type="submit" id="submitBtn">Go</button>
+        </form>
+        <p class="setup-hint" id="setupHint">
+            <a href="#" id="openSettings">&#9881; Set up your API keys</a> to get started
+        </p>
+    </div>
+
+    <!-- Loading -->
+    <div class="loading-screen" id="loadingScreen">
+        <img
+            src="src/static/seinfeld-neighbor.gif"
+            alt="waiting..."
+            class="loading-gif"
+        >
+        <div class="loading-dots">
+            <span></span><span></span><span></span>
+        </div>
+        <p class="loading-text" id="loadingText">Okay, we're checking... hang tight.</p>
+    </div>
+
+    <!-- Error Toast -->
+    <div class="error-toast" id="errorToast"></div>
+
+    <!-- Results -->
+    <div class="results-screen" id="resultsScreen">
+        <div class="results-top">
+            <img
+                src="src/static/jon-hamm-jonhamm.gif"
+                alt="nice"
+                class="results-gif"
+            >
+        </div>
+
+        <div class="results-bar">
+            <div class="results-bar-left" id="resultsInfo"></div>
+            <div class="results-bar-right">
+                <button class="btn-sm" id="exportBtn">Export CSV</button>
+                <button class="btn-sm" id="newBtn">New search</button>
+            </div>
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Proposed Anchor Text</th>
+                        <th>Suggested Target URLs</th>
+                    </tr>
+                </thead>
+                <tbody id="tbody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <footer>
+        <a href="https://cutinside.com/" target="_blank" rel="noopener">Powered by The Best SEO Agency Ever</a>
+    </footer>
+
+    <!-- Elevator Music -->
+    <audio id="elevatorMusic" loop preload="auto">
+        <source src="src/static/elevator-music.mp3" type="audio/mpeg">
+    </audio>
+
+    <script>
+    /* ═══════════════════════════════════════════
+       CONFIG  –  stored in localStorage
+       ═══════════════════════════════════════════ */
+    function getConfig() {
+        return {
+            geminiApiKey: localStorage.getItem('ilt_geminiKey') || '',
+            dataforseoLogin: localStorage.getItem('ilt_dfsLogin') || '',
+            dataforseoPassword: localStorage.getItem('ilt_dfsPassword') || ''
+        };
+    }
+
+    function saveConfig(cfg) {
+        localStorage.setItem('ilt_geminiKey', cfg.geminiApiKey);
+        localStorage.setItem('ilt_dfsLogin', cfg.dataforseoLogin);
+        localStorage.setItem('ilt_dfsPassword', cfg.dataforseoPassword);
+    }
+
+    function isConfigured() {
+        const c = getConfig();
+        return !!(c.geminiApiKey && c.dataforseoLogin && c.dataforseoPassword);
+    }
+
+    /* ═══════════════════════════════════════════
+       UTILITIES
+       ═══════════════════════════════════════════ */
+    function extractDomain(url) {
+        let hostname = new URL(url).hostname.toLowerCase();
+        if (hostname.startsWith('www.')) hostname = hostname.slice(4);
+        const parts = hostname.split('.');
+        const twoPartTlds = new Set([
+            'co.uk','co.il','co.jp','co.kr','co.nz','co.za','co.in',
+            'com.au','com.br','com.cn','com.mx','com.sg','com.tw',
+            'org.uk','org.au','net.au','ac.uk','ac.il'
+        ]);
+        if (parts.length >= 3) {
+            const possible = parts.slice(-2).join('.');
+            if (twoPartTlds.has(possible)) return parts.slice(-3).join('.');
+            return parts.slice(-2).join('.');
+        }
+        return hostname;
+    }
+
+    function normalizeUrl(url) {
+        try {
+            const u = new URL(url.toLowerCase());
+            let host = u.hostname.replace(/^www\./, '');
+            let path = u.pathname.replace(/\/+$/, '');
+            return 'https://' + host + path + u.search;
+        } catch { return url; }
+    }
+
+    function validateUrl(str) {
+        try {
+            const u = new URL(str);
+            return ['http:', 'https:'].includes(u.protocol) && u.hostname.includes('.');
+        } catch { return false; }
+    }
+
+    function cleanText(text) {
+        return text.replace(/\s+/g, ' ').trim();
+    }
+
+    function truncUrl(url, max) {
+        return url.length > max ? url.slice(0, max - 1) + '\u2026' : url;
+    }
+
+    function esc(t) {
+        const d = document.createElement('div');
+        d.textContent = t;
+        return d.innerHTML;
+    }
+
+    /* ═══════════════════════════════════════════
+       CORS PROXY  –  for scraping pages
+       ═══════════════════════════════════════════ */
+    const SCRAPE_PROXY = 'https://api.allorigins.win/raw?url=';
+
+    /* ═══════════════════════════════════════════
+       SCRAPING  –  via CORS proxy + DOMParser
+       ═══════════════════════════════════════════ */
+    async function scrapePage(url) {
+        const proxyUrl = SCRAPE_PROXY + encodeURIComponent(url);
+        const res = await fetch(proxyUrl);
+        if (!res.ok) throw new Error('Could not fetch the page. It may be blocking scrapers.');
+        const html = await res.text();
+
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+
+        // Remove unwanted elements
+        doc.querySelectorAll('script, style, nav, header, footer, aside, form, noscript, iframe')
+            .forEach(el => el.remove());
+
+        // Extract title
+        const titleEl = doc.querySelector('title');
+        const h1El = doc.querySelector('h1');
+        const title = cleanText(titleEl?.textContent || h1El?.textContent || '');
+
+        // Extract text from content elements
+        const contentTags = 'p, h1, h2, h3, h4, h5, h6, li, td, th, article, section, main, blockquote';
+        const texts = [];
+        doc.querySelectorAll(contentTags).forEach(el => {
+            const t = cleanText(el.textContent);
+            if (t.length > 10) texts.push(t);
+        });
+
+        const text = texts.join(' ');
+        if (!text) throw new Error('No extractable content found on this page.');
+
+        return {
+            url: url,
+            domain: extractDomain(url),
+            title: title,
+            text: text
+        };
+    }
+
+    /* ═══════════════════════════════════════════
+       GEMINI API  –  direct REST call
+       ═══════════════════════════════════════════ */
+    async function extractAnchorTexts(content, pageTitle, domain, maxSuggestions) {
+        maxSuggestions = maxSuggestions || 10;
+        const config = getConfig();
+        if (!config.geminiApiKey) throw new Error('Gemini API key not configured. Open settings.');
+
+        if (content.length > 15000) content = content.slice(0, 15000);
+
+        const prompt =
+            'Analyze this page from ' + domain + ' (title: "' + pageTitle + '") and return exactly ' + maxSuggestions + ' anchor text candidates for internal linking. Pick terms that likely have their own page on this domain.\n\n' +
+            'Content:\n' + content + '\n\n' +
+            'Return ONLY a JSON array:\n[{"anchor_text":"term","relevance_score":0.8,"reasoning":"why"}]';
+
+        const apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + config.geminiApiKey;
+
+        const res = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: { temperature: 0.2, maxOutputTokens: 1024 }
+            })
+        });
+
+        if (!res.ok) {
+            const err = await res.json().catch(function() { return {}; });
+            throw new Error(err.error?.message || 'Gemini API error (' + res.status + ')');
+        }
+
+        const data = await res.json();
+        const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+        const match = responseText.match(/\[[\s\S]*\]/);
+        if (!match) throw new Error('Could not parse Gemini response.');
+
+        const suggestions = JSON.parse(match[0]);
+        return suggestions.slice(0, maxSuggestions).filter(function(s) { return s.anchor_text && s.anchor_text.trim(); });
+    }
+
+    /* ═══════════════════════════════════════════
+       DATAFORSEO API  –  direct call with CORS proxy fallback
+       ═══════════════════════════════════════════ */
+    async function searchSite(domain, keyword) {
+        const config = getConfig();
+        if (!config.dataforseoLogin || !config.dataforseoPassword) {
+            throw new Error('DataForSEO credentials not configured. Open settings.');
+        }
+
+        const credentials = btoa(config.dataforseoLogin + ':' + config.dataforseoPassword);
+        const endpoint = 'https://api.dataforseo.com/v3/serp/google/organic/live/advanced';
+
+        const payload = [{
+            keyword: 'site:' + domain + ' "' + keyword + '"',
+            location_code: 2840,
+            language_code: 'en',
+            depth: 10,
+            device: 'desktop'
+        }];
+
+        const fetchOpts = {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Basic ' + credentials,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        };
+
+        let res;
+        try {
+            // Try direct call first
+            res = await fetch(endpoint, fetchOpts);
+        } catch (e) {
+            // CORS blocked — try proxy
+            res = await fetch('https://corsproxy.io/?' + encodeURIComponent(endpoint), fetchOpts);
+        }
+
+        if (res.status === 401) throw new Error('Invalid DataForSEO credentials.');
+        if (!res.ok) throw new Error('DataForSEO error (' + res.status + ')');
+
+        const data = await res.json();
+        if (data.status_code !== 20000) throw new Error(data.status_message || 'DataForSEO API error');
+
+        var results = [];
+        (data.tasks || []).forEach(function(task) {
+            if (task.status_code !== 20000) return;
+            (task.result || []).forEach(function(result) {
+                (result.items || []).forEach(function(item) {
+                    if (item.type === 'organic') {
+                        results.push({
+                            url: item.url || '',
+                            title: item.title || '',
+                            position: item.rank_absolute || 0
+                        });
+                    }
+                });
+            });
+        });
+        return results;
+    }
+
+    /* ═══════════════════════════════════════════
+       ORCHESTRATION  –  full analysis pipeline
+       ═══════════════════════════════════════════ */
+    async function analyze(sourceUrl, onStatus) {
+        onStatus('Scraping page content...');
+        const page = await scrapePage(sourceUrl);
+
+        onStatus('Analyzing content with Gemini AI...');
+        const anchors = await extractAnchorTexts(page.text, page.title, page.domain, 10);
+
+        if (!anchors.length) throw new Error('Gemini could not find any anchor text suggestions.');
+
+        onStatus('Found ' + anchors.length + ' suggestions, searching for targets...');
+
+        const normalizedSource = normalizeUrl(sourceUrl);
+        var results = [];
+
+        for (var i = 0; i < anchors.length; i++) {
+            var anchor = anchors[i];
+            onStatus('Searching ' + (i + 1) + '/' + anchors.length + ': "' + anchor.anchor_text + '"');
+
+            var entry = { anchor_text: anchor.anchor_text, target_urls: [] };
+
+            try {
+                var searchResults = await searchSite(page.domain, anchor.anchor_text);
+                var count = 0;
+                for (var j = 0; j < searchResults.length; j++) {
+                    if (normalizeUrl(searchResults[j].url) === normalizedSource) continue;
+                    entry.target_urls.push(searchResults[j]);
+                    count++;
+                    if (count >= 3) break;
+                }
+            } catch (e) {
+                console.warn('Search failed for "' + anchor.anchor_text + '":', e.message);
+            }
+
+            results.push(entry);
+        }
+
+        return results;
+    }
+
+    /* ═══════════════════════════════════════════
+       UI  –  DOM references & state
+       ═══════════════════════════════════════════ */
+    const form = document.getElementById('analyzeForm');
+    const urlInput = document.getElementById('url');
+    const submitBtn = document.getElementById('submitBtn');
+    const landing = document.getElementById('landing');
+    const loadingScreen = document.getElementById('loadingScreen');
+    const loadingText = document.getElementById('loadingText');
+    const errorToast = document.getElementById('errorToast');
+    const resultsScreen = document.getElementById('resultsScreen');
+    const resultsInfo = document.getElementById('resultsInfo');
+    const tbody = document.getElementById('tbody');
+    const exportBtn = document.getElementById('exportBtn');
+    const newBtn = document.getElementById('newBtn');
+    const elevatorMusic = document.getElementById('elevatorMusic');
+
+    const settingsBtn = document.getElementById('settingsBtn');
+    const settingsModal = document.getElementById('settingsModal');
+    const saveSettingsBtn = document.getElementById('saveSettings');
+    const closeSettingsBtn = document.getElementById('closeSettings');
+    const openSettingsLink = document.getElementById('openSettings');
+    const setupHint = document.getElementById('setupHint');
+
+    const geminiKeyInput = document.getElementById('geminiKey');
+    const dfsLoginInput = document.getElementById('dfsLogin');
+    const dfsPasswordInput = document.getElementById('dfsPassword');
+
+    let currentResults = [];
+    let currentSourceUrl = '';
+    let loadingInterval = null;
+
+    const funnyMessages = [
+        "Okay, we're checking... hang tight.",
+        "We're both waiting for this... it's getting a bit awkward...",
+        "Searching the internet's basement for you...",
+        "Generating links and questionable life choices...",
+        "Reading your page. Slowly. Very slowly.",
+        "Hold on, the hamsters are spinning faster now...",
+        "Almost there... probably.",
+        "If you're reading this, we're still working.",
+        "Making SEO magic happen... or at least trying.",
+        "Whispering sweet nothings to Google..."
+    ];
+
+    /* ─── Settings UI ─── */
+    function updateSettingsUI() {
+        const configured = isConfigured();
+        settingsBtn.classList.toggle('configured', configured);
+        setupHint.classList.toggle('hidden', configured);
+    }
+
+    function openModal() {
+        const c = getConfig();
+        geminiKeyInput.value = c.geminiApiKey;
+        dfsLoginInput.value = c.dataforseoLogin;
+        dfsPasswordInput.value = c.dataforseoPassword;
+        settingsModal.classList.add('active');
+    }
+
+    function closeModal() {
+        settingsModal.classList.remove('active');
+    }
+
+    settingsBtn.addEventListener('click', openModal);
+    openSettingsLink.addEventListener('click', function(e) { e.preventDefault(); openModal(); });
+    closeSettingsBtn.addEventListener('click', closeModal);
+
+    settingsModal.addEventListener('click', function(e) {
+        if (e.target === settingsModal) closeModal();
+    });
+
+    saveSettingsBtn.addEventListener('click', function() {
+        saveConfig({
+            geminiApiKey: geminiKeyInput.value.trim(),
+            dataforseoLogin: dfsLoginInput.value.trim(),
+            dataforseoPassword: dfsPasswordInput.value.trim()
+        });
+        updateSettingsUI();
+        closeModal();
+    });
+
+    /* ─── Error / Loading ─── */
+    function showError(msg) {
+        errorToast.textContent = msg;
+        errorToast.classList.add('visible');
+        setTimeout(function() { errorToast.classList.remove('visible'); }, 4500);
+    }
+
+    let statusOverride = null;
+
+    function startLoadingMessages() {
+        var idx = 0;
+        loadingText.textContent = funnyMessages[0];
+        loadingInterval = setInterval(function() {
+            if (statusOverride) {
+                loadingText.style.opacity = 0;
+                setTimeout(function() {
+                    loadingText.textContent = statusOverride;
+                    loadingText.style.opacity = 1;
+                    statusOverride = null;
+                }, 300);
+                return;
+            }
+            idx = (idx + 1) % funnyMessages.length;
+            loadingText.style.opacity = 0;
+            setTimeout(function() {
+                loadingText.textContent = funnyMessages[idx];
+                loadingText.style.opacity = 1;
+            }, 300);
+        }, 4000);
+    }
+
+    function stopLoadingMessages() {
+        if (loadingInterval) { clearInterval(loadingInterval); loadingInterval = null; }
+    }
+
+    function startMusic() {
+        elevatorMusic.volume = 0.3;
+        elevatorMusic.play().catch(function() {});
+    }
+
+    function stopMusic() {
+        elevatorMusic.pause();
+        elevatorMusic.currentTime = 0;
+    }
+
+    /* ─── Form Submit ─── */
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const url = urlInput.value.trim();
+        if (!url) return;
+
+        if (!validateUrl(url)) {
+            showError("That doesn't look like a real URL. Try again.");
+            return;
+        }
+
+        if (!isConfigured()) {
+            showError('Please configure your API keys first.');
+            openModal();
+            return;
+        }
+
+        // Switch to loading
+        landing.classList.add('hidden');
+        resultsScreen.classList.remove('active');
+        loadingScreen.classList.add('active');
+        submitBtn.disabled = true;
+
+        startMusic();
+        startLoadingMessages();
+
+        try {
+            const results = await analyze(url, function(status) {
+                statusOverride = status;
+            });
+
+            stopLoadingMessages();
+            stopMusic();
+            loadingScreen.classList.remove('active');
+
+            currentResults = results;
+            currentSourceUrl = url;
+            renderResults(results);
+
+        } catch (err) {
+            stopLoadingMessages();
+            stopMusic();
+            loadingScreen.classList.remove('active');
+            landing.classList.remove('hidden');
+            showError(err.message);
+        } finally {
+            submitBtn.disabled = false;
+        }
+    });
+
+    /* ─── Results ─── */
+    function renderResults(results) {
+        tbody.innerHTML = '';
+        resultsInfo.textContent = results.length + ' suggestions found';
+
+        results.forEach(function(r, i) {
+            const tr = document.createElement('tr');
+            var urlsHtml = '';
+
+            if (r.target_urls && r.target_urls.length > 0) {
+                urlsHtml = r.target_urls.map(function(t) {
+                    return '<a href="' + esc(t.url) + '" class="target-link" target="_blank" rel="noopener">' + esc(truncUrl(t.url, 65)) + '</a>';
+                }).join('');
+            } else {
+                urlsHtml = '<span class="no-targets">no matching pages</span>';
+            }
+
+            tr.innerHTML =
+                '<td class="col-num">' + (i + 1) + '</td>' +
+                '<td class="col-anchor">' + esc(r.anchor_text) + '</td>' +
+                '<td class="col-urls">' + urlsHtml + '</td>';
+            tbody.appendChild(tr);
+        });
+
+        resultsScreen.classList.add('active');
+    }
+
+    /* ─── CSV Export (client-side) ─── */
+    exportBtn.addEventListener('click', function() {
+        if (!currentResults.length) return;
+
+        var rows = [['Proposed Anchor Text', 'Target URL 1', 'Target URL 2', 'Target URL 3', 'Source URL']];
+
+        currentResults.forEach(function(r) {
+            var targets = r.target_urls || [];
+            rows.push([
+                r.anchor_text || '',
+                targets[0] ? targets[0].url : '',
+                targets[1] ? targets[1].url : '',
+                targets[2] ? targets[2].url : '',
+                currentSourceUrl
+            ]);
+        });
+
+        var csvContent = rows.map(function(row) {
+            return row.map(function(cell) {
+                return '"' + String(cell).replace(/"/g, '""') + '"';
+            }).join(',');
+        }).join('\n');
+
+        var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'links_' + new Date().toISOString().slice(0, 10) + '.csv';
+        a.click();
+        URL.revokeObjectURL(a.href);
+    });
+
+    /* ─── New Search ─── */
+    newBtn.addEventListener('click', function() {
+        resultsScreen.classList.remove('active');
+        landing.classList.remove('hidden');
+        urlInput.value = '';
+        urlInput.focus();
+        currentResults = [];
+        currentSourceUrl = '';
+    });
+
+    /* ─── Init ─── */
+    updateSettingsUI();
+    if (!isConfigured()) {
+        // Auto-open settings on first visit
+        setTimeout(openModal, 600);
+    }
+    </script>
+</body>
+</html>
