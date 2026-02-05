@@ -643,19 +643,26 @@
             }
         });
 
-        // Remove unwanted elements
-        doc.querySelectorAll('script, style, nav, header, footer, aside, form, noscript, iframe')
-            .forEach(el => el.remove());
-
-        // Extract title
+        // Extract title before removing elements
         const titleEl = doc.querySelector('title');
         const h1El = doc.querySelector('h1');
         const title = cleanText(titleEl?.textContent || h1El?.textContent || '');
 
-        // Extract text from content elements
-        const contentTags = 'p, h1, h2, h3, h4, h5, h6, li, td, th, article, section, main, blockquote';
+        // Try to isolate the main article body
+        let contentRoot = doc.querySelector('main, [role="main"], article, .post-content, .entry-content, .article-body, .article-content, #content');
+        if (!contentRoot) {
+            // Fallback: use body but strip header/footer/nav/sidebar
+            doc.querySelectorAll('script, style, nav, header, footer, aside, form, noscript, iframe, [role="navigation"], [role="banner"], [role="contentinfo"], .sidebar, .nav, .menu, .footer, .header, .widget')
+                .forEach(el => el.remove());
+            contentRoot = doc.body || doc.documentElement;
+        } else {
+            contentRoot.querySelectorAll('script, style, noscript, iframe').forEach(el => el.remove());
+        }
+
+        // Extract text only from the article content area
+        const contentTags = 'p, h1, h2, h3, h4, h5, h6, li, td, th, blockquote';
         const texts = [];
-        doc.querySelectorAll(contentTags).forEach(el => {
+        contentRoot.querySelectorAll(contentTags).forEach(el => {
             const t = cleanText(el.textContent);
             if (t.length > 10) texts.push(t);
         });
@@ -683,8 +690,8 @@
         if (content.length > 15000) content = content.slice(0, 15000);
 
         const prompt =
-            'Analyze this page from ' + domain + ' (title: "' + pageTitle + '") and return exactly ' + maxSuggestions + ' anchor text candidates for internal linking. Pick terms that likely have their own page on this domain.\n\n' +
-            'Content:\n' + content + '\n\n' +
+            'Below is the main article body content from a page on ' + domain + ' (title: "' + pageTitle + '"). Ignore any header, footer, navigation, or sidebar text that may have slipped in. Focus only on the article body and return exactly ' + maxSuggestions + ' anchor text candidates for internal linking. Pick short phrases (2-4 words) from the article that are likely topics with their own dedicated page on this domain.\n\n' +
+            'Article content:\n' + content + '\n\n' +
             'Return ONLY a JSON array:\n[{"anchor_text":"term","relevance_score":0.8,"reasoning":"why"}]';
 
         const apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + config.geminiApiKey;
